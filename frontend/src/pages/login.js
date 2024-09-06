@@ -27,19 +27,17 @@ const Login = () => {
 
       if (response.status === 200) {
         const { token } = response.data;
-        console.log("Login successful:", token);
-
         localStorage.setItem("token", token);
 
         setTimeout(() => {
           if (role === "admins") {
-            router.push("/admin-dashboard");
+            router.push("/admin/dashboard");
           } else if (role === "teachers") {
-            router.push("/teacher-dashboard");
+            router.push("/teacher/account");
           } else if (role === "students") {
-            router.push("/student-dashboard");
+            router.push("/student/account");
           } else if (role === "parents") {
-            router.push("/parent-dashboard");
+            router.push("/parent/account");
           }
         }, 100);
       } else {

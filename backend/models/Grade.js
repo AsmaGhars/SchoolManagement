@@ -13,7 +13,7 @@ const gradeSchema = new mongoose.Schema({
   },
   trimester: {
     type: String,
-    enum: ["Trimester 1", "Trimester 2", "Trimester 3"],
+    enum: ["Trimester1", "Trimester2", "Trimester3"],
     required: true,
   },
   controleGrade: {

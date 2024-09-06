@@ -27,3 +27,32 @@ body {
     text-wrap: balance;
   }
 }
+
+.scroll-hidden {
+  overflow-y: scroll; 
+  scrollbar-width: none; 
+}
+
+.scroll-hidden::-webkit-scrollbar {
+  display: none; 
+}
+
+
+@media (max-width: 640px) {
+  .login-container {
+    max-width: 100%;
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .login-container {
+    max-width: 75%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .login-container {
+    max-width: 50%;
+  }
+}

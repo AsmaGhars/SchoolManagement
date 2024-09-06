@@ -100,6 +100,62 @@ exports.getTimetableForClass = async (req, res) => {
     }
 };
 
+exports.getTimetableForClassStudent = async (req, res) => {
+    try {
+        const studentId = req.user._id;
+
+        const classObj = await Class.findOne({ students: studentId });
+        if (!classObj) {
+            return res.status(404).json({ message: "Class not found for the student!" });
+        }
+        
+        const classId = classObj._id;
+
+        if (!mongoose.Types.ObjectId.isValid(classId)) {
+            return res.status(400).json({ message: "Invalid class ID format!" });
+        }
+
+        const student = await Student.findById(studentId);
+        if (student && !student.isActive) {
+            return res.status(403).json({ message: "Student's account is not active!" });
+        }
+
+        if (classObj.students.some(student => student._id.equals(studentId))) {
+            const timetable = await Timetable.findOne({ classId: new mongoose.Types.ObjectId(classId) })
+                .populate({
+                    path: 'courses',
+                    populate: [
+                        { path: 'subjectId', select: 'subName' },
+                        { path: 'teacherId', select: 'name' },
+                        { path: 'classroomId', select: 'name' }
+                    ]
+                })
+                .populate('classId', 'className');
+
+            if (!timetable) {
+                return res.status(404).json({ message: "Timetable not found for this class!" });
+            }
+
+            const formattedTimetable = timetable.courses.map(course => ({
+                subject: course.subjectId.subName,
+                classroom: course.classroomId.name,
+                teacher: course.teacherId.name,
+                day: course.day,
+                startTime: course.startTime,
+                endTime: course.endTime
+            }));
+
+            return res.status(200).json({ timetable: formattedTimetable });
+
+        } else {
+            return res.status(403).json({ message: "Access denied!" });
+        }
+
+    } catch (error) {
+        console.error("Error retrieving timetable for class:", error);
+        return res.status(500).json({ message: "Error retrieving timetable for class!" });
+    }
+};
 
 exports.getAllClassTimetables = async (req, res) => {
     try {
@@ -190,6 +246,7 @@ exports.createTimetableForTeacher = async (req, res) => {
 
         const existingTimetable = await Timetable.findOne({ teacherId: new mongoose.Types.ObjectId(teacherId) });
 
+        
         if (existingTimetable) {
             existingTimetable.courses = courses.map(course => course._id);
             await existingTimetable.save();
@@ -253,6 +310,54 @@ exports.getTimetableForTeacher = async (req, res) => {
                 startTime: course.startTime || "Unknown",
                 endTime: course.endTime || "Unknown"
             }]
+        }));
+
+        res.status(200).json({ timetables: formattedTimetables });
+
+    } catch (error) {
+        console.error("Error retrieving timetable for teacher:", error);
+        res.status(500).json({ message: "Error retrieving timetable for teacher!" });
+    }
+};
+
+exports.getTimetableTeacher = async (req, res) => {
+    try {
+        const teacherId = req.user._id;
+
+        if (!mongoose.Types.ObjectId.isValid(teacherId)) {
+            return res.status(400).json({ message: "Invalid teacher ID format!" });
+        }
+
+        const teacher = await Teacher.findById(teacherId);
+        if (!teacher) {
+            return res.status(404).json({ message: "Teacher not found!" });
+        }
+
+        const courses = await Course.find({ teacherId: teacherId })
+            .populate({
+                path: 'subjectId',
+                select: 'subName'
+            })
+            .populate({
+                path: 'classroomId',
+                select: 'name'
+            })
+            .populate({
+                path: 'classId', 
+                select: 'className'
+            });
+
+        if (courses.length === 0) {
+            return res.status(404).json({ message: "No timetable found for this teacher!" });
+        }
+
+        const formattedTimetables = courses.map(course => ({
+            className: course.classId ? course.classId.className : "Unknown",
+            subject: course.subjectId ? course.subjectId.subName : "Unknown",
+            classroom: course.classroomId ? course.classroomId.name : "Unknown",
+            day: course.day || "Unknown",
+            startTime: course.startTime || "Unknown",
+            endTime: course.endTime || "Unknown"
         }));
 
         res.status(200).json({ timetables: formattedTimetables });

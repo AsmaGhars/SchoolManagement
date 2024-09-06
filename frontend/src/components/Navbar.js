@@ -24,7 +24,7 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const isLoginOrSignupPage = router.pathname === '/login' || router.pathname === '/signup' || router.pathname === '/forgot-password';
+  const isLoginOrSignupPage = router.pathname === '/login' || router.pathname === '/signup' || router.pathname === '/forgot-password' || router.pathname === '/admin/change-password';
 
   return (
     <nav 

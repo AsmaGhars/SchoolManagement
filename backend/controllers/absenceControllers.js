@@ -59,7 +59,7 @@ exports.recordAbsence = async (req, res) => {
     const absence = new Absence({
       studentId,
       courseId: course._id,
-      date: new Date(),
+      date: new Date(absence.date).toISOString(),
       status: status || "Absent",
     });
 
@@ -113,6 +113,10 @@ exports.getStudentAbsences = async (req, res) => {
         courseId: { $in: courses.map(course => course._id) }
       }).populate('courseId');
   
+      if (absences.length === 0) {
+        return res.status(200).json([]); 
+    }
+
       return res.status(200).json(absences);
     }
 

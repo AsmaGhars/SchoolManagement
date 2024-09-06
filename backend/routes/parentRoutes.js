@@ -37,8 +37,15 @@ router.get(
     parentController.parentDetails
 );
 
+router.get(
+    '/parent-details',
+    authenticate,
+    authorize(['Parent']),
+    parentController.parentDetailsParent
+);
+
 router.put(
-    '/update/:parentId',
+    '/update',
     authenticate,
     authorize(['Parent']),
     parentController.updateParent
@@ -73,6 +80,27 @@ router.post(
     authenticate,
     authorize(['Admin']),
     parentController.addChild
+);
+
+router.delete(
+    '/removechild/:parentId',
+    authenticate,
+    authorize(['Admin']),
+    parentController.removeChild
+);
+
+router.get(
+    '/getchildren/:parentId',
+    authenticate,
+    authorize(['Admin']),
+    parentController.getChildren
+);
+
+router.get(
+    '/children',
+    authenticate,
+    authorize(['Parent']),
+    parentController.Children
 );
 
 module.exports = router;

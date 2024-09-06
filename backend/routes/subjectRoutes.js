@@ -12,7 +12,7 @@ router.post('/create',
 router.get(
     '/list',
     authenticate,
-    authorize(['Admin']),
+    authorize(['Admin', 'Teacher']),
     subjectController.getAllSubjects
 );
 

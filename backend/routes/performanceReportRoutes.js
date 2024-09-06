@@ -32,4 +32,11 @@ router.post(
     performanceReportController.getPerformanceReportById
   );
 
+  router.get(
+    "/details",
+    authenticate,
+    authorize(["Student"]),
+    performanceReportController.getReportByStudent
+  );
+
 module.exports = router;

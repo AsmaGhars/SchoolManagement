@@ -20,6 +20,13 @@ router.get(
 );
 
 router.get(
+  "/get-class-student",
+  authenticate,
+  authorize(["Student"]),
+  timetableControllers.getTimetableForClassStudent
+);
+
+router.get(
   "/list-class",
   authenticate,
   authorize(["Admin"]),
@@ -36,8 +43,15 @@ router.post(
 router.get(
   "/get-teacher/:id",
   authenticate,
-  authorize(["Admin", "Teacher"]),
+  authorize(["Teacher"]),
   timetableControllers.getTimetableForTeacher
+);
+
+router.get(
+  "/get-teacher",
+  authenticate,
+  authorize(["Admin", "Teacher"]),
+  timetableControllers.getTimetableTeacher
 );
 
 router.get(

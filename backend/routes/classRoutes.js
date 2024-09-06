@@ -19,6 +19,12 @@ router.get(
   classControllers.listClasses
 );
 router.get(
+  "/list-teacher",
+  authenticate,
+  authorize(["Teacher"]),
+  classControllers.listClassesTeacher
+);
+router.get(
   "/details/:id",
   authenticate,
   authorize(["Admin"]),
@@ -49,7 +55,7 @@ router.delete(
   classControllers.removeStudent
 );
 router.post(
-  "/addsubject/:id/subjects",
+  "/addsubject/:id",
   authenticate,
   authorize(["Admin"]),
   classControllers.addSubject
@@ -67,6 +73,13 @@ router.get(
   authenticate,
   authorize(["Admin"]),
   classControllers.listStudents
+);
+
+router.get(
+  "/listclassstudents/:classId",
+  authenticate,
+  authorize(["Teacher"]),
+  classControllers.getClassStudents
 );
 
 router.put(

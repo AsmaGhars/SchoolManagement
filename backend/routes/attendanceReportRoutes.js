@@ -20,6 +20,13 @@ router.get(
 );
 
 router.get(
+  "/details",
+  authenticate,
+  authorize(["Student"]),
+  attendanceReportController.getReportByStudent
+);
+
+router.get(
     "/list",
     authenticate,
     authorize("Admin"),

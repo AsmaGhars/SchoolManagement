@@ -15,6 +15,14 @@ router.post(
     teacherController.login
 );
 
+router.post(
+    '/logout',
+    authenticate,
+    authorize(['Teacher']),
+    teacherController.logout
+);
+
+
 router.get(
     '/list',
     authenticate,
@@ -30,7 +38,7 @@ router.get(
 );
 
 router.put(
-    '/update/:teacherId',
+    '/update',
     authenticate,
     authorize(['Teacher']),
     teacherController.updateTeacher
@@ -44,7 +52,7 @@ router.delete(
 );
 
 router.put(
-    '/change-password/:teacherId',
+    '/change-password',
     authenticate,
     authorize(['Teacher']),
     teacherController.changePassword
@@ -66,5 +74,13 @@ router.get(
     authorize(['Admin']),
     teacherController.getTeachersBySubject
 );
+
+router.get(
+    '/teacher-details',
+    authenticate,
+    authorize(['Teacher']),
+    teacherController.teacherDetailsTeacher
+);
+
 
 module.exports = router;

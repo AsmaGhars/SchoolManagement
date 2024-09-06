@@ -143,14 +143,15 @@ exports.updateAdmin = async (req, res) => {
   const adminId = req.user._id;
   const { name, email, schoolName, fees } = req.body;
 
-  if ((name && !name.trim()) || (schoolName && !schoolName.trim())) {
-    return res.status(400).json({ msg: "Name and School Name are required" });
-  }
-
   try {
-    if (email) {
+    const currentAdmin = await Admin.findById(adminId).exec();
+    if (!currentAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (email && email !== currentAdmin.email) {
       const existingAdmin = await Admin.findOne({ email }).exec();
-      if (existingAdmin && existingAdmin._id.toString() !== adminId) {
+      if (existingAdmin) {
         return res.status(400).json({ msg: "Email already exists" });
       }
     }
@@ -160,22 +161,18 @@ exports.updateAdmin = async (req, res) => {
     const updatedAdmin = await Admin.findByIdAndUpdate(
       adminId,
       {
-        name: formattedName || undefined,
-        email: email || undefined,
-        schoolName: schoolName || undefined,
-        fees: fees || undefined,
+        name: formattedName || currentAdmin.name,
+        email: email || currentAdmin.email,
+        schoolName: schoolName || currentAdmin.schoolName,
+        fees: fees || currentAdmin.fees,
       },
       { new: true, runValidators: true }
     ).select("-password");
 
-    if (!updatedAdmin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
     res.json({ message: "Admin updated successfully", admin: updatedAdmin });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error updating Admin" });
+    console.error("An error occurred during the update:", error.message);
+    res.status(500).json({ message: "An error occurred during the update" });
   }
 };
 
@@ -254,25 +251,19 @@ exports.forgotPassword = async (req, res) => {
     const admin = await Admin.findOne({ email }).exec();
 
     if (!admin) {
-      return res.status(404).json({ message: "Admin Not Found" });
+      return res.status(404).json({ message: "Admin not found" });
     }
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenHash = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
+    const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     admin.resetPasswordToken = resetTokenHash;
-    admin.resetPasswordExpires = Date.now() + 3600000;
+    admin.resetPasswordExpires = Date.now() + 3600000; 
 
     await admin.save();
 
-    const resetUrl = `${req.protocol}://${req.get(
-      "host"
-    )}/api/admins/reset-password/${resetToken}`;
-    console.log(resetUrl);
-
+    const resetUrl = `${req.protocol}://localhost:3000/admin/reset-password/${resetToken}`;
+    
     await sendEmail(
       admin.email,
       "Password Reset Request",
@@ -282,7 +273,7 @@ exports.forgotPassword = async (req, res) => {
       If you did not request this, please ignore this email and your password will remain unchanged.\n`
     );
 
-    res.json({ message: "Password reset token sent to email" });
+    res.json({ message: "Password reset link sent to email" });
   } catch (error) {
     console.error("Error sending password reset email:", error);
     res.status(500).json({ message: "Error sending password reset email" });
@@ -292,8 +283,9 @@ exports.forgotPassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
   const { token } = req.params;
   const { newPassword } = req.body;
-  console.log('Received request for reset password with token:', token)
 
+  console.log(token);
+  
   if (!newPassword) {
     return res.status(400).json({ message: "New password is required" });
   }

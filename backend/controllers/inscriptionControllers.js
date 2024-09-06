@@ -5,6 +5,7 @@ const Payment = require("../models/Paiment");
 const Parent = require("../models/Parent");
 const Admin = require("../models/Admin");
 
+
 const validateAcademicYear = (year) => {
   const regex = /^\d{4}-\d{4}$/;
   return regex.test(year);
@@ -27,18 +28,12 @@ exports.createInscription = async (req, res) => {
   }
 
   if (!validateAcademicYear(academicYear)) {
-    return res
-      .status(400)
-      .json({ message: "Invalid academic year format. Use YYYY-YYYY." });
+    return res.status(400).json({ message: "Invalid academic year format. Use YYYY-YYYY." });
   }
 
   const validAcademicYears = getCurrentAndNextAcademicYears();
   if (!validAcademicYears.includes(academicYear)) {
-    return res
-      .status(400)
-      .json({
-        message: "Academic year must be either the current year or next year.",
-      });
+    return res.status(400).json({ message: "Academic year must be either the current year or next year." });
   }
 
   try {
@@ -56,11 +51,7 @@ exports.createInscription = async (req, res) => {
       return res.status(400).json({ message: "Class not found." });
     }
 
-    if (!classExists.school) {
-      return res.status(400).json({ message: "Class does not have an associated school." });
-    }
-        
-    if (classExists.school.toString() !== adminId.toString()) {
+    if (!classExists.school || classExists.school.toString() !== adminId.toString()) {
       return res.status(403).json({ message: "Unauthorized to create inscriptions for this class." });
     }
 
@@ -76,12 +67,19 @@ exports.createInscription = async (req, res) => {
       fees: admin.fees
     });
 
+    classExists.students = classExists.students || [];
+    if (!classExists.students.includes(student)) {
+      classExists.students.push(student);
+      await classExists.save();
+    }
+
     const savedInscription = await newInscription.save();
     res.status(201).json(savedInscription);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.getAllInscriptions = async (req, res) => {
   const adminId = req.user._id;
@@ -195,13 +193,20 @@ exports.deleteInscription = async (req, res) => {
     if (!student) {
       return res.status(404).json({ message: "Student not found." });
     }
+    
     const parent = await Parent.findOne({ children: student._id });
     if (!student || student.school.toString() !== adminId.toString()) {
       return res.status(403).json({ message: "Unauthorized to delete this inscription." });
     }
 
-    const payment = await Payment.findOne({ inscription: id });
+    const classExists = await Class.findById(inscription.class);
+    if (classExists) {
+      classExists.students = classExists.students || [];
+      classExists.students = classExists.students.filter(s => s.toString() !== student._id.toString());
+      await classExists.save();
+    }
 
+    const payment = await Payment.findOne({ inscription: id });
     if (payment) {
       await Payment.findByIdAndDelete(payment._id).exec();
     }
@@ -221,6 +226,7 @@ exports.deleteInscription = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 exports.deleteExpiredInscriptions = async () => {
   try {

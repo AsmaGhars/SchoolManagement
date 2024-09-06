@@ -18,9 +18,10 @@ exports.createSubject = async (req, res) => {
 
         const normalizedSubName = capitalizeFirstLetter(subName.trim());
 
-        const existingSubject = await Subject.findOne({ subName: normalizedSubName });
+        const existingSubject = await Subject.findOne({ subName: normalizedSubName, school: adminId});
 
         if (existingSubject) {
+
             return res.status(409).json({ message: 'Subject name already exists. It must be unique.' });
         }
 
@@ -104,7 +105,6 @@ exports.updateSubject = async (req, res) => {
             return res.status(409).json({ message: 'Subject name already exists. It must be unique.' });
         }
 
-        // Update the subject
         const updatedSubject = await Subject.findByIdAndUpdate(
             id,
             { subName: normalizedSubName, coefficient },

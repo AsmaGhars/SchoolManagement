@@ -159,52 +159,55 @@ exports.teacherDetails = async (req, res) => {
 
 
 exports.updateTeacher = async (req, res) => {
-    const { teacherId } = req.params;
-    const { name, email, teachSubject, sex } = req.body;
-
-    if (req.user._id.toString() !== teacherId) {
-        return res.status(403).json({ message: "Forbidden" });
-    }
-
+    const teacherId = req.user._id;
+    const { name, email, sex } = req.body;
+  
     if (name && !name.trim()) {
-        return res.status(400).json({ msg: "Name is required" });
+      return res.status(400).json({ msg: "Name is required" });
     }
-
+  
     if (email && !isEmail(email)) {
-        return res.status(400).json({ msg: "Invalid email" });
+      return res.status(400).json({ msg: "Invalid email" });
     }
-
+  
+    const validSex = ["Male", "Female"];
+    if (sex && !validSex.includes(sex)) {
+      return res.status(400).json({
+        msg: "Invalid sex type. Must be 'Male' or 'Female'",
+      });
+    }
+  
     try {
-        if (email) {
-            const existingTeacher = await Teacher.findOne({ email }).exec();
-            if (existingTeacher && existingTeacher._id.toString() !== teacherId) {
-                return res.status(400).json({ message: "Email already registered with another account" });
-            }
+      const currentTeacher = await Teacher.findById(teacherId).exec();
+      if (!currentTeacher) {
+        return res.status(404).json({ message: "Teacher not found" });
+      }
+  
+      if (email && email !== currentTeacher.email) {
+        const existingTeacher = await Teacher.findOne({ email }).exec();
+        if (existingTeacher) {
+          return res.status(400).json({ msg: "Email already exists" });
         }
-
-        const formattedName = name ? capitalizeName(name) : undefined;
-
-        const updatedTeacher = await Teacher.findByIdAndUpdate(
-            teacherId,
-            {
-                name: formattedName || undefined,
-                email: email || undefined,
-                teachSubject: teachSubject || undefined,
-                sex: sex || undefined
-            },
-            { new: true, runValidators: true }
-        );
-
-        if (!updatedTeacher) {
-            return res.status(404).json({ message: "Teacher not found" });
-        }
-
-        res.json({ message: "Teacher updated successfully", teacher: updatedTeacher });
+      }
+  
+      const formattedName = name ? capitalizeName(name) : undefined;
+  
+      const updatedTeacher = await Teacher.findByIdAndUpdate(
+        teacherId,
+        {
+          name: formattedName || currentTeacher.name,
+          email: email || currentTeacher.email,
+          sex: sex || currentTeacher.sex,
+        },
+        { new: true, runValidators: true }
+      ).select("-password");
+  
+      res.json({ message: "Teacher updated successfully", teacher: updatedTeacher });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error updating teacher" });
+      console.error(error);
+      res.status(500).json({ message: "Error updating Teacher" });
     }
-};
+  };
 
 exports.deleteTeacher = async (req, res) => {
     const { teacherId } = req.params;
@@ -371,3 +374,21 @@ exports.getTeachersBySubject = async (req, res) => {
         res.status(500).json({ message: "Error retrieving teachers by subject" });
     }
 };
+
+exports.teacherDetailsTeacher = async (req, res) => {
+    try {
+      const teacherId = req.user._id;
+      console.log(teacherId);
+      
+  
+      let teacher = await Teacher.findById(teacherId).select("-password").exec();
+      if (teacher) {
+        res.send(teacher);
+      } else {
+        res.send({ message: "No Teacher Found" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Error finding teacher details" });
+    }
+  };
+  

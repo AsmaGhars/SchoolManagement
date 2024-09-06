@@ -228,30 +228,58 @@ exports.getAllNotificationsByAdmin = async (req, res) => {
 
   exports.updateNotification = async (req, res) => {
     try {
-        const { notificationId } = req.params;
-        const adminId = req.user._id;
-        const updateData = req.body;
-
-        if (!mongoose.Types.ObjectId.isValid(notificationId) || !mongoose.Types.ObjectId.isValid(adminId)) {
-            return res.status(400).json({ message: 'Invalid ID' });
+      const { notificationId } = req.params;
+      const adminId = req.user._id;
+      const updateData = req.body;
+  
+      if (!mongoose.Types.ObjectId.isValid(notificationId) || !mongoose.Types.ObjectId.isValid(adminId)) {
+        return res.status(400).json({ message: 'Invalid ID' });
+      }
+  
+      const notification = await Notification.findOne({ _id: notificationId, creator: adminId });
+  
+      if (!notification) {
+        return res.status(404).json({ message: 'Notification not found or you are not authorized to update it' });
+      }
+  
+      if (updateData.recipientModels) {
+        let allRecipients = [];
+  
+        if (updateData.recipientModels.includes('Student')) {
+          const students = await Student.find({ school: adminId, isActive: true }, '_id');
+          allRecipients = allRecipients.concat(students.map(student => student._id));
         }
-
-        const notification = await Notification.findOneAndUpdate(
-            { _id: notificationId, creator: adminId }, 
-            { $set: updateData },
-            { new: true }
-        );
-
-        if (!notification) {
-            return res.status(404).json({ message: 'Notification not found or you are not authorized to update it' });
+  
+        if (updateData.recipientModels.includes('Teacher')) {
+          const teachers = await Teacher.find({ school: adminId, isActive: true }, '_id');
+          allRecipients = allRecipients.concat(teachers.map(teacher => teacher._id));
         }
-
-        res.status(200).json(notification);
+  
+        if (updateData.recipientModels.includes('Parent')) {
+          const parents = await Parent.find({ school: adminId, isActive: true }, '_id');
+          allRecipients = allRecipients.concat(parents.map(parent => parent._id));
+        }
+  
+        if (updateData.recipientModels.includes('Class')) {
+          const classes = await Class.find({ school: adminId }, '_id');
+          allRecipients = allRecipients.concat(classes.map(classModel => classModel._id));
+        }
+  
+        updateData.recipients = [...new Set(allRecipients)];
+      }
+  
+      const updatedNotification = await Notification.findByIdAndUpdate(
+        notificationId,
+        { $set: updateData },
+        { new: true }
+      );
+  
+      res.status(200).json(updatedNotification);
     } catch (error) {
-        console.error('Error updating notification:', error);
-        res.status(500).json({ message: 'Failed to update notification' });
+      console.error('Error updating notification:', error);
+      res.status(500).json({ message: 'Failed to update notification' });
     }
-};
-
+  };
+  
 
   

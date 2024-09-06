@@ -29,7 +29,7 @@ const parentSchema = new Schema({
         required: [true, "Please enter your phone number"],
         validate: {
           validator: function(v) {
-            return /^\+?[1-9]\d{1,14}$/.test(v); // Example regex for phone number validation
+            return /^\+?[1-9]\d{1,14}$/.test(v); 
           },
           message: props => `${props.value} is not a valid phone number!`
         }

@@ -2,6 +2,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { isEmail } = require("validator");
 const Student = require('../models/Student');
+const Admin = require('../models/Admin');
+const Parent = require('../models/Parent');
 const crypto = require("crypto");
 const sendEmail = require("../mailer");
 require("dotenv").config();
@@ -177,12 +179,8 @@ exports.studentDetails = async (req, res) => {
 
 
 exports.updateStudent = async (req, res) => {
-  const { studentId } = req.params;
+  const studentId = req.user._id;
   const { name, birthDate, address, phone, email, sex } = req.body;
-
-  if (req.user.id !== studentId) {
-    return res.status(403).json({ message: "You are not authorized to update this student's information" });
-  }
 
   if (name && !name.trim()) {
     return res.status(400).json({ msg: "Name is required" });
@@ -201,22 +199,23 @@ exports.updateStudent = async (req, res) => {
   }
 
   try {
-    if (email) {
+    const currentStudent = await Student.findById(studentId).exec();
+    if (!currentStudent) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (email && email !== currentStudent.email) {
       const existingStudent = await Student.findOne({ email }).exec();
-      if (existingStudent && existingStudent._id.toString() !== studentId) {
-        return res.status(400).json({ message: "Email already registered with another account" });
+      if (existingStudent) {
+        return res.status(400).json({ msg: "Email already exists" });
       }
     }
 
     const formattedName = name ? capitalizeName(name) : undefined;
-    const formattedBirthDate = birthDate ? parseDate(birthDate) : undefined;
+    
+    const formattedBirthDate = birthDate ? new Date(birthDate) : undefined;
 
-    const student = await Student.findById(studentId);
-
-    if (!student) {
-      return res.status(404).json({ message: "Student not found" });
-    }
-    if (!student.isActive){
+    if (!currentStudent.isActive) {
       return res.status(400).json({ message: "Student is inactive" });
     }
 
@@ -392,3 +391,73 @@ exports.resetPassword = async (req, res) => {
     }
 };
 
+exports.freeStudentList = async (req, res) => {
+  try {
+      const students = await Student.find({ school: req.user._id }).exec();
+
+      const freeStudents = await Promise.all(students.map(async (student) => {
+          const isAssigned = await Parent.findOne({ children: student._id }).exec();
+          return isAssigned ? null : student;
+      }));
+
+      const availableStudents = freeStudents.filter(student => student !== null);
+
+      if (availableStudents.length > 0) {
+          res.status(200).send(availableStudents);
+      } else {
+          res.status(404).send({ message: "No free students found" });
+      }
+  } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.getParent = async (req, res) => {
+  const { studentId } = req.params;
+  console.log(studentId);
+  
+  const userId = req.user._id; 
+
+  try {
+      const student = await Student.findById(studentId).exec();
+      console.log(student);
+      
+
+      if (!student) {
+          return res.status(404).json({ message: "Student not found" });
+      }
+
+      if (student.school.toString() !== userId.toString()) {
+          return res.status(403).json({ message: "Unauthorized access" });
+      }
+
+      const parent = await Parent.findOne({ children: studentId }).exec();
+
+      if (!parent) {
+          return res.status(404).json({ message: "Parent not found for this student" });
+      }
+
+      res.json({ parent });
+  } catch (error) {
+      console.error("Error finding parent:", error);
+      res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.studentDetailsStudent = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+    console.log(studentId);
+    
+
+    let student = await Student.findById(studentId).select("-password").exec();
+    if (student) {
+      res.send(student);
+    } else {
+      res.send({ message: "No Student Found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Error finding student details" });
+  }
+};

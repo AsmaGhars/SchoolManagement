@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const { isEmail } = require("validator");
 const Parent = require("../models/Parent");
 const Student = require("../models/Student");
+const Admin = require("../models/Admin");
 const crypto = require("crypto");
 const sendEmail = require("../mailer");
 require("dotenv").config();
@@ -165,10 +166,14 @@ exports.parentDetails = async (req, res) => {
   try {
     const parentId = req.params.id;
     const userId = req.user._id;
-    let user = await Parent.findById(userId).exec();
+    
+    let user = await Parent.findById(userId.toString()).exec();
+
     if (!user) {
       user = await Admin.findById(userId).exec();
     }
+    console.log(userId);
+    console.log(user.school);
 
     let parent = await Parent.findOne({
       _id: parentId,
@@ -177,12 +182,14 @@ exports.parentDetails = async (req, res) => {
       .select("-password")
       .exec();
 
+
     if (parent) {
       if (user.role == "Parent") {
         if (parent.isActive == false) {
           return res.status(403).json({ message: "Parent is not active" });
         }
       }
+
       res.send(parent);
     } else {
       res.send({ message: "No Parent Found" });
@@ -192,15 +199,26 @@ exports.parentDetails = async (req, res) => {
   }
 };
 
-exports.updateParent = async (req, res) => {
-  const { parentId } = req.params;
-  const { name, email, phone, address, relationship, sex } = req.body;
+exports.parentDetailsParent = async (req, res) => {
+  try {
+    const parentId = req.user._id;
+    console.log(parentId);
+    
 
-  if (req.user.id !== parentId) {
-    return res.status(403).json({
-      message: "You are not authorized to update this parent's information",
-    });
+    let parent = await Parent.findById(parentId).select("-password").exec();
+    if (parent) {
+      res.send(parent);
+    } else {
+      res.send({ message: "No Parent Found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Error finding parent details" });
   }
+};
+
+exports.updateParent = async (req, res) => {
+  const parentId = req.user._id;
+  const { name, email, phone, address, relationship, sex } = req.body;
 
   if (name && !name.trim()) {
     return res.status(400).json({ msg: "Name is required" });
@@ -229,46 +247,39 @@ exports.updateParent = async (req, res) => {
   }
 
   try {
-    if (email) {
+    const currentParent = await Parent.findById(parentId).exec();
+    if (!currentParent) {
+      return res.status(404).json({ message: "Parent not found" });
+    }
+
+    if (email && email !== currentParent.email) {
       const existingParent = await Parent.findOne({ email }).exec();
-      if (existingParent && existingParent._id.toString() !== parentId) {
-        return res
-          .status(400)
-          .json({ message: "Email already registered with another account" });
+      if (existingParent) {
+        return res.status(400).json({ msg: "Email already exists" });
       }
     }
 
     const formattedName = name ? capitalizeName(name) : undefined;
 
-    const updatedParent = await Parent.findById(parentId);
-
-    if (!updatedParent) {
-      return res.status(404).json({ message: "Parent not found" });
-    }
-
-    if (!updatedParent.isActive){
-      return res.status(400).json({ message: "Parent is inactive" });
-    }
-
-    const newParent = await Parent.findByIdAndUpdate(
+    const updatedParent = await Parent.findByIdAndUpdate(
       parentId,
       {
-        name: formattedName || undefined,
-        email: email || undefined,
-        phone: phone || undefined,
-        address: address || undefined,
-        relationship: relationship || undefined,
-        sex: sex || undefined,
+        name: formattedName || currentParent.name,
+        email: email || currentParent.email,
+        phone: phone || currentParent.phone,
+        address: address || currentParent.address,
+        relationship: relationship || currentParent.relationship,
+        sex: sex || currentParent.sex,
       },
       { new: true, runValidators: true }
     ).select("-password");
-    res.json({ message: "Parent updated successfully", parent: newParent });
+
+    res.json({ message: "Parent updated successfully", parent: updatedParent });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error updating Parent" });
   }
 };
-
 exports.deleteParent = async (req, res) => {
   const { parentId } = req.params;
   try {
@@ -280,11 +291,9 @@ exports.deleteParent = async (req, res) => {
 
     const adminId = deletedParent.school._id.toString();
     if (req.user._id.toString() !== adminId) {
-      return res
-        .status(403)
-        .json({
-          message: "You are not authorized to delete this Parent's account",
-        });
+      return res.status(403).json({
+        message: "You are not authorized to delete this Parent's account",
+      });
     }
 
     await Parent.findByIdAndDelete(parentId);
@@ -315,7 +324,7 @@ exports.changePassword = async (req, res) => {
       return res.status(404).json({ message: "Parent not found" });
     }
 
-    if(!parent.isActive){
+    if (!parent.isActive) {
       return res.status(400).json({ message: "Parent account is inactive" });
     }
 
@@ -460,11 +469,9 @@ exports.addChild = async (req, res) => {
       school: adminId,
     }).exec();
     if (students.length !== studentIds.length) {
-      return res
-        .status(400)
-        .json({
-          message: "Some student IDs are invalid or not owned by this admin",
-        });
+      return res.status(400).json({
+        message: "Some student IDs are invalid or not owned by this admin",
+      });
     }
 
     const updatedParent = await Parent.findByIdAndUpdate(
@@ -480,5 +487,110 @@ exports.addChild = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error adding students to parent" });
+  }
+};
+
+exports.removeChild = async (req, res) => {
+  const { parentId } = req.params;
+  const { studentIds } = req.body;
+
+  if (!Array.isArray(studentIds) || studentIds.length === 0) {
+    return res
+      .status(400)
+      .json({ message: "Student IDs must be provided as an array" });
+  }
+
+  try {
+    const isValidObjectId = mongoose.Types.ObjectId.isValid;
+    const invalidIds = studentIds.filter((id) => !isValidObjectId(id));
+    if (invalidIds.length > 0) {
+      return res
+        .status(400)
+        .json({ message: "Invalid student IDs", invalidIds });
+    }
+
+    const parent = await Parent.findById(parentId).exec();
+    if (!parent) {
+      return res.status(404).json({ message: "Parent not found" });
+    }
+
+    const adminId = req.user._id;
+    if (parent.school.toString() !== adminId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to modify this parent" });
+    }
+
+    const students = await Student.find({
+      _id: { $in: studentIds },
+      school: adminId,
+    }).exec();
+    if (students.length !== studentIds.length) {
+      return res.status(400).json({
+        message: "Some student IDs are invalid or not owned by this admin",
+      });
+    }
+
+    const updatedParent = await Parent.findByIdAndUpdate(
+      parentId,
+      { $pullAll: { children: studentIds } },
+      { new: true, runValidators: true }
+    ).exec();
+
+    res.json({
+      message: "Students removed successfully",
+      parent: updatedParent,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error removing students from parent" });
+  }
+};
+
+exports.getChildren = async (req, res) => {
+  const { parentId } = req.params;
+
+  try {
+    const parent = await Parent.findById(parentId).exec();
+
+    if (!parent) {
+      return res.status(404).json({ message: "Parent not found" });
+    }
+
+    const adminId = req.user._id;
+    if (parent.school.toString() !== adminId.toString()) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to view this parent's children" });
+    }
+
+    const students = await Student.find({
+      _id: { $in: parent.children },
+      school: adminId,
+    }).exec();
+
+    res.json({
+      message: "Children fetched successfully",
+      children: students,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching children" });
+  }
+};
+
+
+exports.Children = async (req, res) => {
+  try {
+    const parentId = req.user._id; 
+    const parent = await Parent.findById(parentId).populate('children');
+    
+    if (!parent) {
+      return res.status(404).json({ message: 'Parent not found' });
+    }
+
+    res.json(parent.children); 
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
   }
 };

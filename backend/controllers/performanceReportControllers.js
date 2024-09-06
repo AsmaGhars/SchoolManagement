@@ -149,3 +149,33 @@ exports.getPerformanceReportById = async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 };
+
+exports.getReportByStudent = async (req, res) => {
+  try {
+    const studentId = req.user._id;
+
+    const reports = await PerformanceReport.find({ studentId }).exec();
+
+    if (!reports.length) {
+      return res
+        .status(404)
+        .json({ message: "No reports found for this student" });
+    }
+
+    const student = await Student.findById(studentId).exec();
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    if (req.user._id.toString() !== studentId.toString()) {
+      return res.status(403).json({ message: "Unauthorized access" });
+    }
+
+    return res.status(200).json(reports);
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Server error", error: error.message });
+  }
+};

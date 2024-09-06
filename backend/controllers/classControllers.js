@@ -37,15 +37,44 @@ exports.listClasses = async (req, res) => {
   }
 };
 
+exports.listClassesTeacher = async (req, res) => {
+  try {
+    const teacherId = req.user._id;
+    console.log(teacherId);
+
+    const teacher = await Teacher.findById(teacherId);
+    
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found!" });
+    }
+
+    const classes = await Class.find({ school: teacher.school });
+
+    if (classes.length > 0) {
+      return res.status(200).json(classes);
+    } else {
+      return res.status(404).json({ message: "No classes found!" });
+    }
+  } catch (error) {
+    console.error("Error finding classes:", error);
+    return res.status(500).json({ message: "Error finding classes" });
+  }
+};
+
 exports.getclassDetail = async (req, res) => {
   try {
-    let classe = await Class.findById(req.params.id).populate("school", "schoolName");
+    let classe = await Class.findById(req.params.id)
+      .populate("students", "name") 
+      .populate("subjects.subjectId", "subName")
+      .populate("subjects.teacherId", "name");
     if (!classe) {
       return res.status(404).json({ message: "No class found" });
     }
 
     if (classe.school._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You are not authorized to view this class" });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to view this class" });
     }
 
     res.status(200).json(classe);
@@ -61,11 +90,17 @@ exports.updateClass = async (req, res) => {
     if (!classData) {
       return res.status(404).json({ error: "Class Not Found!" });
     }
-    
+
     if (classData.school.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You are not authorized to update this class" });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to update this class" });
     }
-    const updatedClass = await Class.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updatedClass = await Class.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
     res.status(200).json(updatedClass);
   } catch (error) {
     res.status(400).json({ message: "Error Updating Class!" });
@@ -79,7 +114,9 @@ exports.deleteClass = async (req, res) => {
       return res.status(404).json({ error: "Class not found!" });
     }
     if (classData.school.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You are not authorized to delete this class" });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to delete this class" });
     }
     await Class.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Class Deleted Successfully!" });
@@ -101,7 +138,11 @@ exports.addStudent = async (req, res) => {
     }
 
     if (classData.school.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You are not authorized to add students to this class" });
+      return res
+        .status(403)
+        .json({
+          message: "You are not authorized to add students to this class",
+        });
     }
 
     const student = await Student.findById(studentId);
@@ -110,16 +151,23 @@ exports.addStudent = async (req, res) => {
     }
 
     if (student.school.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You are not authorized to add this student" });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to add this student" });
     }
 
     if (!student.isActive) {
       return res.status(400).json({ error: "Student account is not active!" });
     }
-    
-    const existingClass = await Class.findOne({ students: studentId, school: req.user._id });
+
+    const existingClass = await Class.findOne({
+      students: studentId,
+      school: req.user._id,
+    });
     if (existingClass) {
-      return res.status(400).json({ error: "Student is already in another class!" });
+      return res
+        .status(400)
+        .json({ error: "Student is already in another class!" });
     }
 
     if (classData.students.length >= classData.nbrStudents.max) {
@@ -148,9 +196,13 @@ exports.removeStudent = async (req, res) => {
       return res.status(404).json({ error: "Class Not Found!" });
     }
     if (classData.school.toString() !== adminId.toString()) {
-      return res.status(403).json({ message: "You are not authorized to remove students from this class" });
+      return res
+        .status(403)
+        .json({
+          message: "You are not authorized to remove students from this class",
+        });
     }
-    
+
     const studentIndex = classData.students.indexOf(studentId);
     if (studentIndex === -1) {
       return res.status(404).json({ error: "Student Not Found in Class!" });
@@ -186,7 +238,11 @@ exports.addSubject = async (req, res) => {
     }
 
     if (classData.school.toString() !== adminId.toString()) {
-      return res.status(403).json({ message: "You are not authorized to add subjects to this class" });
+      return res
+        .status(403)
+        .json({
+          message: "You are not authorized to add subjects to this class",
+        });
     }
 
     const teacher = await Teacher.findById(teacherId);
@@ -234,7 +290,11 @@ exports.deleteSubject = async (req, res) => {
     }
 
     if (classData.school.toString() !== adminId.toString()) {
-      return res.status(403).json({ message: "You are not authorized to remove subjects from this class" });
+      return res
+        .status(403)
+        .json({
+          message: "You are not authorized to remove subjects from this class",
+        });
     }
 
     const subjectIndex = classData.subjects.findIndex(
@@ -258,10 +318,10 @@ exports.deleteSubject = async (req, res) => {
 
 exports.listStudents = async (req, res) => {
   try {
-    const classData = await Class.findOne({ _id: req.params.id, school: req.user._id }).populate(
-      "students",
-      "name email"
-    );
+    const classData = await Class.findOne({
+      _id: req.params.id,
+      school: req.user._id,
+    }).populate("students", "name email");
     if (!classData) {
       return res.status(404).json({ error: "Class Not Found!" });
     }
@@ -279,27 +339,31 @@ exports.listStudents = async (req, res) => {
   }
 };
 
+
+
 exports.changeTeacher = async (req, res) => {
   try {
     const { subjectId, newTeacherId } = req.body;
-    const adminId = req.user._id; 
+    const adminId = req.user._id;
 
     if (!subjectId || !newTeacherId) {
       return res
         .status(400)
         .json({ error: "Subject ID and new teacher ID are required" });
-    }    
+    }
 
     const classData = await Class.findById(req.params.id);
     if (!classData) {
       return res.status(404).json({ error: "Class Not Found" });
     }
 
-    
     if (classData.school.toString() !== adminId.toString()) {
-      return res.status(403).json({ error: "You are not authorized to change teachers for this class" });
+      return res
+        .status(403)
+        .json({
+          error: "You are not authorized to change teachers for this class",
+        });
     }
-    
 
     const subjectIndex = classData.subjects.findIndex(
       (subject) => subject.subjectId.toString() === subjectId.toString()
@@ -309,15 +373,19 @@ exports.changeTeacher = async (req, res) => {
       return res.status(404).json({ error: "Subject Not Found in Class!" });
     }
     console.log(subjectId);
-    
 
     const newTeacher = await Teacher.findById(newTeacherId);
     if (!newTeacher) {
       return res.status(404).json({ error: "New Teacher Not Found" });
     }
-    
-    if (!newTeacher.school || newTeacher.school.toString() !== adminId.toString()) {
-      return res.status(403).json({ error: "You are not authorized to assign this teacher" });
+
+    if (
+      !newTeacher.school ||
+      newTeacher.school.toString() !== adminId.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ error: "You are not authorized to assign this teacher" });
     }
 
     const teacherTeachesSubject =
@@ -345,10 +413,10 @@ exports.changeTeacher = async (req, res) => {
 
 exports.listTeachers = async (req, res) => {
   try {
-    const classData = await Class.findOne({ _id: req.params.id, school: req.user._id }).populate(
-      "subjects.teacherId",
-      "name email"
-    );
+    const classData = await Class.findOne({
+      _id: req.params.id,
+      school: req.user._id,
+    }).populate("subjects.teacherId", "name email");
 
     if (!classData) {
       return res.status(404).json({ error: "Class Not Found!" });
@@ -371,10 +439,10 @@ exports.listTeachers = async (req, res) => {
 
 exports.listSubjects = async (req, res) => {
   try {
-    const classData = await Class.findOne({ _id: req.params.id, school: req.user._id }).populate(
-      "subjects.subjectId",
-      "subName"
-    );
+    const classData = await Class.findOne({
+      _id: req.params.id,
+      school: req.user._id,
+    }).populate("subjects.subjectId", "subName");
 
     if (!classData) {
       return res.status(404).json({ error: "Class Not Found!" });
@@ -401,7 +469,11 @@ exports.transferStudent = async (req, res) => {
     const adminId = req.user._id;
 
     if (!studentId || !currentClassId || !newClassId) {
-      return res.status(400).json({ error: "Student ID, currentClass ID, and newClass ID are required!" });
+      return res
+        .status(400)
+        .json({
+          error: "Student ID, currentClass ID, and newClass ID are required!",
+        });
     }
 
     const currentClass = await Class.findById(currentClassId);
@@ -411,8 +483,16 @@ exports.transferStudent = async (req, res) => {
       return res.status(404).json({ error: "One or both classes not found!" });
     }
 
-    if (currentClass.school.toString() !== adminId.toString() || newClass.school.toString() !== adminId.toString()) {
-      return res.status(403).json({ message: "You are not authorized to transfer students between these classes" });
+    if (
+      currentClass.school.toString() !== adminId.toString() ||
+      newClass.school.toString() !== adminId.toString()
+    ) {
+      return res
+        .status(403)
+        .json({
+          message:
+            "You are not authorized to transfer students between these classes",
+        });
     }
 
     const student = await Student.findById(studentId);
@@ -420,20 +500,26 @@ exports.transferStudent = async (req, res) => {
       return res.status(404).json({ error: "Student not found!" });
     }
     if (student.school.toString() !== adminId.toString()) {
-      return res.status(403).json({ message: "You are not authorized to transfer this student" });
+      return res
+        .status(403)
+        .json({ message: "You are not authorized to transfer this student" });
     }
 
     const studentIndex = currentClass.students.indexOf(studentId);
     if (studentIndex === -1) {
-      return res.status(400).json({ error: "Student is not in the fromClass!" });
+      return res
+        .status(400)
+        .json({ error: "Student is not in the fromClass!" });
     }
 
     if (newClass.students.includes(studentId)) {
-      return res.status(400).json({ error: "Student is already in the toClass!" });
+      return res
+        .status(400)
+        .json({ error: "Student is already in the toClass!" });
     }
 
     currentClass.students.splice(studentIndex, 1);
-    newClass.students.push(studentId); 
+    newClass.students.push(studentId);
 
     await currentClass.save();
     await newClass.save();
@@ -442,5 +528,35 @@ exports.transferStudent = async (req, res) => {
   } catch (error) {
     console.error("Error transferring student:", error);
     res.status(500).json({ error: "Error transferring student!" });
+  }
+};
+
+exports.getClassStudents = async (req, res) => {
+  try {
+    const { classId } = req.params; 
+    const teacherId = req.user._id; 
+
+    const classData = await Class.findOne({ 
+      _id: classId, 
+      school: req.user.school 
+    }).populate('students', 'name email'); 
+
+    if (!classData) {
+      return res.status(404).json({ error: "Class Not Found!" });
+    }
+
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return res.status(404).json({ error: "Teacher Not Found!" });
+    }
+
+    if (teacher.school.toString() !== classData.school.toString()) {
+      return res.status(403).json({ error: "You are not authorized to view students in this class!" });
+    }
+
+    res.status(200).json(classData.students);
+  } catch (error) {
+    console.error("Error finding class students:", error);
+    res.status(500).json({ error: "Error finding class students" });
   }
 };

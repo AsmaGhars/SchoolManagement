@@ -4,8 +4,7 @@ const subjectSchema = new mongoose.Schema({
   subName: {
     type: String,
     required: [true, "Le nom du sujet est obligatoire"],
-    trim: true,
-    unique: true
+    trim: true
   },
   coefficient: {
     type: Number,
