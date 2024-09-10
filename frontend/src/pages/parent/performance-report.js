@@ -93,7 +93,7 @@ const ParentPerformanceReport = () => {
   return (
     <Layout>
       <Navbar />
-      <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-lg mt-20">
+      <div className="max-w-4xl mx-auto p-8 bg-white shadow-lg rounded-lg mt-20 scroll-hidden overflow-y-auto">
         <h2 className="text-3xl font-semibold mb-10">Performance Reports</h2>
 
         <div className="mb-10">

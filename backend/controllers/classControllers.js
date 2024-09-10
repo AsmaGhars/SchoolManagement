@@ -339,8 +339,6 @@ exports.listStudents = async (req, res) => {
   }
 };
 
-
-
 exports.changeTeacher = async (req, res) => {
   try {
     const { subjectId, newTeacherId } = req.body;

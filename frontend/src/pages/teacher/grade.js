@@ -100,7 +100,7 @@ const GradePage = () => {
       });
       alert("Grades submitted successfully!");
       setTimeout(() => {
-        router.push("/student/account"); 
+        router.push("/teacher/account"); 
       }, 220); 
     } catch (error) {
       console.error("Failed to submit grades:", error.message);
